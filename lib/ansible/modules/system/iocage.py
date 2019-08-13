@@ -87,11 +87,22 @@ from ansible.module_utils.basic import AnsibleModule
 from typing import Dict
 
 
+class IOCage:
+    def __init__(self):
+        super(IOCage, self).__init__()
+        self.zpool = None
+
+    def is_activated(self) -> bool:
+        return False
+
+    def activate(self):
+        pass
+
+
 class Jail:
     def __init__(self, name: str):
         self.name = name
         self.release = None
-        self.zpool = None
         self.started = None
         self.boot = None
 
@@ -108,11 +119,16 @@ def run_module(module: AnsibleModule, result: Dict):
 
     # use whatever logic you need to determine whether or not this module
     # made any modifications to your target
+    iocage = IOCage()
+    if module.params['zpool']:
+        iocage.zpool = module.params['zpool']
+        if not iocage.is_activated():
+            iocage.activate()
+
     jail = Jail(module.params['name'])
     if module.params['release']:
         jail.release = module.params['release']
-    if module.params['zpool']:
-        jail.zpool = module.params['zpool']
+
     if module.params['started']:
         jail.started = module.params['started']
     if module.params['boot']:
