@@ -95,6 +95,10 @@ class Jail:
         self.started = None
         self.boot = None
 
+    def is_running(self) -> bool:
+
+        return False
+
 
 def run_module(module: AnsibleModule, result: Dict):
     # manipulate or modify the state as needed (this is going to be the
@@ -105,6 +109,14 @@ def run_module(module: AnsibleModule, result: Dict):
     # use whatever logic you need to determine whether or not this module
     # made any modifications to your target
     jail = Jail(module.params['name'])
+    if module.params['release']:
+        jail.release = module.params['release']
+    if module.params['zpool']:
+        jail.zpool = module.params['zpool']
+    if module.params['started']:
+        jail.started = module.params['started']
+    if module.params['boot']:
+        jail.boot = module.params['boot']
 
     if module.params['new']:
         result['changed'] = True
