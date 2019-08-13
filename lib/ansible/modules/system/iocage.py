@@ -96,7 +96,10 @@ def run_module():
     # define available arguments/parameters a user can pass to the module
     module_args = dict(
         name=dict(type='str', required=True),
-        release=dict(type='str', required=True, default=False)
+        release=dict(type='str', required=True),
+        zpool=dict(type=str, required=False),
+        started=dict(type=bool, required=False, default=True),
+        boot=dict(type=bool, required=False)
     )
 
     # seed the result dict in the object
