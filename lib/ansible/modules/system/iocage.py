@@ -87,7 +87,16 @@ from ansible.module_utils.basic import AnsibleModule
 from typing import Dict
 
 
-def run_module(module_args: Dict, module: AnsibleModule, result: Dict):
+class Jail:
+    def __init__(self, name: str):
+        self.name = name
+        self.release = None
+        self.zpool = None
+        self.started = None
+        self.boot = None
+
+
+def run_module(module: AnsibleModule, result: Dict):
     # manipulate or modify the state as needed (this is going to be the
     # part where your module will do what it needs to do)
     result['original_message'] = module.params['name']
@@ -95,6 +104,8 @@ def run_module(module_args: Dict, module: AnsibleModule, result: Dict):
 
     # use whatever logic you need to determine whether or not this module
     # made any modifications to your target
+    jail = Jail(module.params['name'])
+
     if module.params['new']:
         result['changed'] = True
 
@@ -104,9 +115,7 @@ def run_module(module_args: Dict, module: AnsibleModule, result: Dict):
     if module.params['name'] == 'fail me':
         module.fail_json(msg='You requested this to fail', **result)
 
-    # in the event of a successful module execution, you will want to
-    # simple AnsibleModule.exit_json(), passing the key/value results
-    module.exit_json(**result)
+    return result
 
 
 def main():
@@ -145,7 +154,7 @@ def main():
     if module.check_mode:
         module.exit_json(**result)
 
-    result = run_module(module_args, module, result)
+    result = run_module(module, result)
 
     # in the event of a successful module execution, you will want to
     # simple AnsibleModule.exit_json(), passing the key/value results
