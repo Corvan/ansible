@@ -87,6 +87,14 @@ from ansible.module_utils.basic import AnsibleModule
 from typing import Dict
 
 
+class Jail:
+    def __init__(self, name: str):
+        self.name = name
+        self.release = None
+        self.started = None
+        self.boot = None
+
+
 class IOCage:
     def __init__(self):
         super(IOCage, self).__init__()
@@ -98,17 +106,11 @@ class IOCage:
     def activate(self):
         pass
 
-
-class Jail:
-    def __init__(self, name: str):
-        self.name = name
-        self.release = None
-        self.started = None
-        self.boot = None
-
-    def is_running(self) -> bool:
-
+    def is_started(self, jail: Jail):
         return False
+
+    def start(self, jail: Jail):
+        pass
 
 
 def run_module(module: AnsibleModule, result: Dict):
@@ -124,18 +126,17 @@ def run_module(module: AnsibleModule, result: Dict):
         iocage.zpool = module.params['zpool']
         if not iocage.is_activated():
             iocage.activate()
+            result['changed'] = True
 
     jail = Jail(module.params['name'])
     if module.params['release']:
         jail.release = module.params['release']
-
-    if module.params['started']:
-        jail.started = module.params['started']
     if module.params['boot']:
         jail.boot = module.params['boot']
-
-    if module.params['new']:
-        result['changed'] = True
+    if module.params['started']:
+        jail.started = module.params['started']
+        if not iocage.is_started(jail):
+            iocage.start(jail)
 
     # during the execution of the module, if there is an exception or a
     # conditional state that effectively causes a failure, run
