@@ -42,18 +42,12 @@ options:
     started:
         description:
             - Define ff the jail should be running
-        choices:
-            - true
-            - false
         default:
             - true
         required: false
     boot:
         description:
             - Define if the jail should be started on host boot
-        choices:
-            - true
-            - false
         required: false
 
 author:
@@ -90,16 +84,39 @@ message:
 '''
 
 from ansible.module_utils.basic import AnsibleModule
+from typing import Dict
 
 
-def run_module():
+def run_module(module_args: Dict, module: AnsibleModule, result: Dict):
+    # manipulate or modify the state as needed (this is going to be the
+    # part where your module will do what it needs to do)
+    result['original_message'] = module.params['name']
+    result['message'] = 'goodbye'
+
+    # use whatever logic you need to determine whether or not this module
+    # made any modifications to your target
+    if module.params['new']:
+        result['changed'] = True
+
+    # during the execution of the module, if there is an exception or a
+    # conditional state that effectively causes a failure, run
+    # AnsibleModule.fail_json() to pass in the message and the result
+    if module.params['name'] == 'fail me':
+        module.fail_json(msg='You requested this to fail', **result)
+
+    # in the event of a successful module execution, you will want to
+    # simple AnsibleModule.exit_json(), passing the key/value results
+    module.exit_json(**result)
+
+
+def main():
     # define available arguments/parameters a user can pass to the module
     module_args = dict(
         name=dict(type='str', required=True),
-        release=dict(type='str', required=True),
-        zpool=dict(type=str, required=False),
-        started=dict(type=bool, required=False, default=True),
-        boot=dict(type=bool, required=False)
+        release=dict(type='str', required=False),
+        zpool=dict(type='str', required=False),
+        started=dict(type='bool', required=False, default=True),
+        boot=dict(type='bool', required=False)
     )
 
     # seed the result dict in the object
@@ -128,29 +145,11 @@ def run_module():
     if module.check_mode:
         module.exit_json(**result)
 
-    # manipulate or modify the state as needed (this is going to be the
-    # part where your module will do what it needs to do)
-    result['original_message'] = module.params['name']
-    result['message'] = 'goodbye'
-
-    # use whatever logic you need to determine whether or not this module
-    # made any modifications to your target
-    if module.params['new']:
-        result['changed'] = True
-
-    # during the execution of the module, if there is an exception or a
-    # conditional state that effectively causes a failure, run
-    # AnsibleModule.fail_json() to pass in the message and the result
-    if module.params['name'] == 'fail me':
-        module.fail_json(msg='You requested this to fail', **result)
+    result = run_module(module_args, module, result)
 
     # in the event of a successful module execution, you will want to
     # simple AnsibleModule.exit_json(), passing the key/value results
     module.exit_json(**result)
-
-
-def main():
-    run_module()
 
 
 if __name__ == '__main__':
