@@ -107,15 +107,11 @@ class IOCage:
         self.result = result
         self.zpool = zpool
 
-    def is_activated(self) -> bool:
-        if self.zpool is None:
-            raise ValueError("No ZPool for activation checking given")
-        raise NotImplementedError
-
     def activate(self):
         if self.zpool is None:
             raise ValueError("No ZPool for activation given")
-        raise NotImplementedError
+        rc, stdout, stderr = self.module.run_command(["iocage", "activate", self.zpool],
+                                                     check_rc=True)
 
     def exists(self, jail: Jail) -> bool:
         rc, stdout, stderr = self.module.run_command(IOCage.LIST_COMMAND, check_rc=True)
@@ -161,7 +157,7 @@ def run_module(module: AnsibleModule, result: Dict):
     result['original_message'] = module.params['name']
 
     iocage = IOCage(module, result, module.params.get('zpool'))
-    if iocage.zpool and not iocage.is_activated():
+    if iocage.zpool:
         iocage.activate()
         result['changed'] = True
         message = "ZPool %s activated", format(iocage.zpool)
