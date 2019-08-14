@@ -137,7 +137,7 @@ class IOCage:
                     return True
 
     def start(self, jail: Jail):
-        raise NotImplementedError
+        rc, stdout, stderr = self.module.run_command(["iocage", "start", jail.name])
 
     @staticmethod
     def _parse_list_output(stdout) -> List[Dict]:
