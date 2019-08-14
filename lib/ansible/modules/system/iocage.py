@@ -19,11 +19,11 @@ version_added: "2.8" # TODO: check me
 
 description:
     - >
-        "In FreeBSD jails are chroot environments on steroids, 
+        "In FreeBSD jails are chroot environments on steroids,
         incl. e.g high security and an own network stack.
-        iocage (https://github.com/iocage/iocage) is a jail 
-        manager totally written in python using ZFS as storage 
-        backend. This module strives to automate jail management 
+        iocage (https://github.com/iocage/iocage) is a jail
+        manager totally written in python using ZFS as storage
+        backend. This module strives to automate jail management
         with iocage and ansible"
 
 options:
@@ -84,33 +84,71 @@ message:
 '''
 
 from ansible.module_utils.basic import AnsibleModule
-from typing import Dict
+from typing import Dict, List
 
 
 class Jail:
-    def __init__(self, name: str):
+    def __init__(self, name: str, release: str = None, started: bool = None,
+                 boot: bool = None):
         self.name = name
-        self.release = None
-        self.started = None
-        self.boot = None
+        self.release = release
+        self.started = started
+        self.boot = boot
 
 
 class IOCage:
-    def __init__(self):
+
+    LIST_COMMAND = list(["iocage", "list", "-Hl"])
+
+    def __init__(self, module: AnsibleModule, zpool: str = None):
         super(IOCage, self).__init__()
-        self.zpool = None
+        self.module = module
+        self.zpool = zpool
 
     def is_activated(self) -> bool:
-        return False
+        if self.zpool is None:
+            raise ValueError("No ZPool for activation checking given")
+        raise NotImplementedError
 
     def activate(self):
-        pass
+        if self.zpool is None:
+            raise ValueError("No ZPool for activation given")
+        raise NotImplementedError
 
-    def is_started(self, jail: Jail):
+    def exists(self, jail: Jail) -> bool:
+        rc, stdout, stderr = self.module.run_command(IOCage.LIST_COMMAND)
+        if rc == 0:
+            output = IOCage._parse_list_output(stdout)
+            for line in output:
+                if line.get('name') == jail.name:
+                    return True
         return False
 
+    def create(self, jail: Jail):
+        raise NotImplementedError
+
+    def is_started(self, jail: Jail) -> bool:
+        raise NotImplementedError
+
     def start(self, jail: Jail):
-        pass
+        raise NotImplementedError
+
+    @staticmethod
+    def _parse_list_output(stdout) -> List[Dict]:
+        output = list()
+        for line in stdout.splitlines():
+            elements = line.split("\t")
+            output.append(dict(jailid=elements[0],
+                               name=elements[1],
+                               boot=elements[2],
+                               state=elements[3],
+                               type=elements[4],
+                               release=elements[5],
+                               ipv4=elements[6],
+                               ipv6=elements[7],
+                               template=elements[8],
+                               basejail=elements[9]))
+        return output
 
 
 def run_module(module: AnsibleModule, result: Dict):
@@ -121,22 +159,22 @@ def run_module(module: AnsibleModule, result: Dict):
 
     # use whatever logic you need to determine whether or not this module
     # made any modifications to your target
-    iocage = IOCage()
-    if module.params['zpool']:
-        iocage.zpool = module.params['zpool']
-        if not iocage.is_activated():
-            iocage.activate()
-            result['changed'] = True
+    iocage = IOCage(module, module.params.get('zpool'))
+    if iocage.zpool and not iocage.is_activated():
+        iocage.activate()
+        result['changed'] = True
 
-    jail = Jail(module.params['name'])
-    if module.params['release']:
-        jail.release = module.params['release']
-    if module.params['boot']:
-        jail.boot = module.params['boot']
-    if module.params['started']:
-        jail.started = module.params['started']
-        if not iocage.is_started(jail):
-            iocage.start(jail)
+    jail = Jail(name=module.params['name'],
+                release=module.params.get('release'),
+                started=module.params.get('started'),
+                boot=module.params.get('boot'))
+    if not iocage.exists(jail):
+        iocage.create(jail)
+        result['changed'] = True
+
+    if jail.started and not iocage.is_started(jail):
+        iocage.start(jail)
+        result['changed'] = True
 
     # during the execution of the module, if there is an exception or a
     # conditional state that effectively causes a failure, run
