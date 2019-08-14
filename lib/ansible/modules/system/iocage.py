@@ -169,15 +169,16 @@ def run_module(module: AnsibleModule, result: Dict):
                 boot=module.params.get('boot'))
     if not iocage.exists(jail):
         iocage.create(jail)
+        result['changed'] = True
         message = "Jail %s created".format(jail.name)
         result['message'] = str("%s, %s").format(result['message'], message)
         result['changed'] = True
 
     if jail.started and not iocage.is_started(jail):
         iocage.start(jail)
+        result['changed'] = True
         message = "Jail %s started".format(jail.name)
         result['message'] = str("%s, %s").format(result['message'], message)
-        result['changed'] = True
 
     if module.params['name'] == 'fail me':
         module.fail_json(msg='You requested this to fail', **result)
