@@ -101,9 +101,10 @@ class IOCage:
 
     LIST_COMMAND = list(["iocage", "list", "-Hl"])
 
-    def __init__(self, module: AnsibleModule, zpool: str = None):
+    def __init__(self, module: AnsibleModule, result: Dict, zpool: str = None):
         super(IOCage, self).__init__()
         self.module = module
+        self.result = result
         self.zpool = zpool
 
     def is_activated(self) -> bool:
@@ -117,27 +118,26 @@ class IOCage:
         raise NotImplementedError
 
     def exists(self, jail: Jail) -> bool:
-        rc, stdout, stderr = self.module.run_command(IOCage.LIST_COMMAND)
-        if rc == 0:
-            output = IOCage._parse_list_output(to_text(stdout))
-            for line in output:
-                if line.get('name') == jail.name:
-                    return True
+        rc, stdout, stderr = self.module.run_command(IOCage.LIST_COMMAND, check_rc=True)
+        output = IOCage._parse_list_output(to_text(stdout))
+        for line in output:
+            if line.get('name') == jail.name:
+                return True
         return False
 
     def create(self, jail: Jail):
         raise NotImplementedError
 
     def is_started(self, jail: Jail) -> bool:
-        rc, stdout, stderr = self.module.run_command(IOCage.LIST_COMMAND)
-        if rc == 0:
-            output = IOCage._parse_list_output(to_text(stdout))
-            for line in output:
-                if line.get('name') == jail.name and line.get('state') == "up":
-                    return True
+        rc, stdout, stderr = self.module.run_command(IOCage.LIST_COMMAND, check_rc=True)
+        output = IOCage._parse_list_output(to_text(stdout))
+        for line in output:
+            if line.get('name') == jail.name and line.get('state') == "up":
+                return True
+        return False
 
     def start(self, jail: Jail):
-        rc, stdout, stderr = self.module.run_command(["iocage", "start", jail.name])
+        rc, stdout, stderr = self.module.run_command(["iocage", "start", jail.name], check_rc=True)
 
     @staticmethod
     def _parse_list_output(stdout) -> List[Dict]:
@@ -158,17 +158,14 @@ class IOCage:
 
 
 def run_module(module: AnsibleModule, result: Dict):
-    # manipulate or modify the state as needed (this is going to be the
-    # part where your module will do what it needs to do)
     result['original_message'] = module.params['name']
-    result['message'] = 'goodbye'
 
-    # use whatever logic you need to determine whether or not this module
-    # made any modifications to your target
-    iocage = IOCage(module, module.params.get('zpool'))
+    iocage = IOCage(module, result, module.params.get('zpool'))
     if iocage.zpool and not iocage.is_activated():
         iocage.activate()
         result['changed'] = True
+        message = "ZPool %s activated", format(iocage.zpool)
+        result['message'] = str("%s, %s").format(result['message'], message)
 
     jail = Jail(name=module.params['name'],
                 release=module.params.get('release'),
@@ -176,15 +173,16 @@ def run_module(module: AnsibleModule, result: Dict):
                 boot=module.params.get('boot'))
     if not iocage.exists(jail):
         iocage.create(jail)
+        message = "Jail %s created".format(jail.name)
+        result['message'] = str("%s, %s").format(result['message'], message)
         result['changed'] = True
 
     if jail.started and not iocage.is_started(jail):
         iocage.start(jail)
+        message = "Jail %s started".format(jail.name)
+        result['message'] = str("%s, %s").format(result['message'], message)
         result['changed'] = True
 
-    # during the execution of the module, if there is an exception or a
-    # conditional state that effectively causes a failure, run
-    # AnsibleModule.fail_json() to pass in the message and the result
     if module.params['name'] == 'fail me':
         module.fail_json(msg='You requested this to fail', **result)
 
