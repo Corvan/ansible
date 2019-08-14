@@ -84,6 +84,7 @@ message:
 '''
 
 from ansible.module_utils.basic import AnsibleModule
+from ansible.module_utils._text import to_text
 from typing import Dict, List
 
 
@@ -118,7 +119,7 @@ class IOCage:
     def exists(self, jail: Jail) -> bool:
         rc, stdout, stderr = self.module.run_command(IOCage.LIST_COMMAND)
         if rc == 0:
-            output = IOCage._parse_list_output(stdout)
+            output = IOCage._parse_list_output(to_text(stdout))
             for line in output:
                 if line.get('name') == jail.name:
                     return True
@@ -128,7 +129,12 @@ class IOCage:
         raise NotImplementedError
 
     def is_started(self, jail: Jail) -> bool:
-        raise NotImplementedError
+        rc, stdout, stderr = self.module.run_command(IOCage.LIST_COMMAND)
+        if rc == 0:
+            output = IOCage._parse_list_output(to_text(stdout))
+            for line in output:
+                if line.get('name') == jail.name and line.get('state') == "up":
+                    return True
 
     def start(self, jail: Jail):
         raise NotImplementedError
