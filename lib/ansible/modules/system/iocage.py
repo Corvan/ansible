@@ -110,11 +110,10 @@ class IOCage:
     def activate(self):
         if self.zpool is None:
             raise ValueError("No ZPool for activation given")
-        rc, stdout, stderr = self.module.run_command(["iocage", "activate", self.zpool],
-                                                     check_rc=True)
+        self.module.run_command(["iocage", "activate", self.zpool], check_rc=True)
 
     def exists(self, jail: Jail) -> bool:
-        rc, stdout, stderr = self.module.run_command(IOCage.LIST_COMMAND, check_rc=True)
+        stdout = self.module.run_command(IOCage.LIST_COMMAND, check_rc=True)[1]
         output = IOCage._parse_list_output(to_text(stdout))
         for line in output:
             if line.get('name') == jail.name:
@@ -125,7 +124,7 @@ class IOCage:
         raise NotImplementedError
 
     def is_started(self, jail: Jail) -> bool:
-        rc, stdout, stderr = self.module.run_command(IOCage.LIST_COMMAND, check_rc=True)
+        stdout = self.module.run_command(IOCage.LIST_COMMAND, check_rc=True)[1]
         output = IOCage._parse_list_output(to_text(stdout))
         for line in output:
             if line.get('name') == jail.name and line.get('state') == "up":
@@ -133,7 +132,7 @@ class IOCage:
         return False
 
     def start(self, jail: Jail):
-        rc, stdout, stderr = self.module.run_command(["iocage", "start", jail.name], check_rc=True)
+        self.module.run_command(["iocage", "start", jail.name], check_rc=True)
 
     @staticmethod
     def _parse_list_output(stdout) -> List[Dict]:
