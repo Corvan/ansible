@@ -233,11 +233,11 @@ def run_module(module: AnsibleModule, result: Dict):
 def main():
     # define available arguments/parameters a user can pass to the module
     module_args = dict(
+        zpool=dict(type='str', required=False),
         name=dict(type='str', required=True),
         release=dict(type='str', required=False),
         template=dict(type='str', required=False),
         empty=dict(type='bool', required=False, default=False),
-        zpool=dict(type='str', required=False),
         started=dict(type='bool', required=False, default=False),
         boot=dict(type='bool', required=False, default=False)
     )
