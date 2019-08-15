@@ -183,8 +183,9 @@ def run_module(module: AnsibleModule, result: Dict):
     if iocage.zpool:
         iocage.activate()
         result['changed'] = True
-        message = str("ZPool %s activated").format(iocage.zpool)
-        result['message'] = str("%s, %s").format(result['message'], message)
+        message = str("ZPool %s activated" % iocage.zpool)
+        result['message'] = str("%s, %s" % (result['message'], message)) \
+            if result['message'] else message
 
     try:
         jail = Jail(name=module.params['name'],
@@ -196,15 +197,23 @@ def run_module(module: AnsibleModule, result: Dict):
     if not iocage.exists(jail):
         iocage.create(jail)
         result['changed'] = True
-        message = "Jail %s created".format(jail.name)
-        result['message'] = str("%s, %s").format(result['message'], message)
-        result['changed'] = True
+        message = "Jail '%s' created" % jail.name
+        result['message'] = str("%s, %s" % (result['message'], message)) \
+            if result['message'] else message
 
     if jail.started and not iocage.is_started(jail):
         iocage.start(jail)
         result['changed'] = True
-        message = str("Jail %s started").format(jail.name)
-        result['message'] = str("%s, %s").format(result['message'], message)
+        message = str("Jail '%s' started" %  jail.name)
+        result['message'] = str("%s, %s" % (result['message'], message)) \
+            if result['message'] else message
+
+    if not jail.started and iocage.is_started(jail):
+        iocage.stop(jail)
+        result['changed'] = True
+        message = str("Jail '%s' stopped" % jail.name)
+        result['message'] = str("%s, %s" % (result['message'], message)) \
+            if result['message'] else message
 
     if module.params['name'] == 'fail me':
         module.fail_json(msg='You requested this to fail', **result)
