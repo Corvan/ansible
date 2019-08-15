@@ -84,22 +84,27 @@ message:
 '''
 
 from ansible.module_utils.basic import AnsibleModule
-from ansible.module_utils._text import to_text
+from ansible.module_utils.basic import to_text
 from typing import Dict, List
 
 
 class Jail:
-    def __init__(self, name: str, release: str = None, started: bool = None,
+    def __init__(self, name: str, release: str = None, template: str = None, started: bool = None,
                  boot: bool = None):
+        if release is None and template is None:
+            raise ValueError("You have to pass either release or template")
         self.name = name
         self.release = release
+        self.template = template
         self.started = started
         self.boot = boot
 
 
 class IOCage:
 
-    LIST_COMMAND = list(["iocage", "list", "-Hl"])
+    IOCAGE = list(["iocage"])
+    LIST_COMMAND = list(IOCAGE)
+    LIST_COMMAND.extend(list(["list", "-Hl"]))
 
     def __init__(self, module: AnsibleModule, result: Dict, zpool: str = None):
         super(IOCage, self).__init__()
@@ -121,7 +126,19 @@ class IOCage:
         return False
 
     def create(self, jail: Jail):
-        raise NotImplementedError
+        command = IOCage.IOCAGE
+        command.extend(list(["create",
+                             "-n", jail.name]))
+
+        if jail.release:
+            command.extend(["-r", jail.release])
+        elif jail.template:
+            command.extend(["-t", jail.template])
+
+        if jail.boot:
+            command.extend(["-o", "boot=on"])
+
+        self.module.run_command(command, check_rc=True)
 
     def is_started(self, jail: Jail) -> bool:
         stdout = self.module.run_command(IOCage.LIST_COMMAND, check_rc=True)[1]
@@ -162,10 +179,13 @@ def run_module(module: AnsibleModule, result: Dict):
         message = "ZPool %s activated", format(iocage.zpool)
         result['message'] = str("%s, %s").format(result['message'], message)
 
-    jail = Jail(name=module.params['name'],
-                release=module.params.get('release'),
-                started=module.params.get('started'),
-                boot=module.params.get('boot'))
+    try:
+        jail = Jail(name=module.params['name'],
+                    release=module.params.get('release'),
+                    started=module.params.get('started'),
+                    boot=module.params.get('boot'))
+    except ValueError as ve:
+        pass  # TODO: add error Message here
     if not iocage.exists(jail):
         iocage.create(jail)
         result['changed'] = True
