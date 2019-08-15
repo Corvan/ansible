@@ -89,13 +89,19 @@ from typing import Dict, List
 
 
 class Jail:
-    def __init__(self, name: str, release: str = None, template: str = None, started: bool = None,
-                 boot: bool = None):
+    def __init__(self, name: str, release: str = None, template: str = None,
+                 empty: bool = False, started: bool = False, boot: bool = False):
+        if release and template:
+            raise ValueError("Only release or template can be set")
         if release is None and template is None:
             raise ValueError("You have to pass either release or template")
+        if empty and (release or template):
+            raise ValueError("You can only create an empty Jail with neither "
+                             "release nor template set")
         self.name = name
         self.release = release
         self.template = template
+        self.empty = empty
         self.started = started
         self.boot = boot
 
@@ -134,6 +140,8 @@ class IOCage:
             command.extend(["-r", jail.release])
         elif jail.template:
             command.extend(["-t", jail.template])
+        elif jail.empty:
+            command.extend("-e")
 
         if jail.boot:
             command.extend(["-o", "boot=on"])
@@ -190,6 +198,7 @@ def run_module(module: AnsibleModule, result: Dict):
     try:
         jail = Jail(name=module.params['name'],
                     release=module.params.get('release'),
+                    empty=module.params.get('empty'),
                     started=module.params.get('started'),
                     boot=module.params.get('boot'))
     except ValueError as ve:
@@ -226,9 +235,11 @@ def main():
     module_args = dict(
         name=dict(type='str', required=True),
         release=dict(type='str', required=False),
+        template=dict(type='str', required=False),
+        empty=dict(type='bool', required=False, default=False),
         zpool=dict(type='str', required=False),
         started=dict(type='bool', required=False, default=False),
-        boot=dict(type='bool', required=False)
+        boot=dict(type='bool', required=False, default=False)
     )
 
     # seed the result dict in the object
