@@ -126,7 +126,7 @@ class IOCage:
         return False
 
     def create(self, jail: Jail):
-        command = IOCage.IOCAGE
+        command = list(IOCage.IOCAGE)
         command.extend(list(["create",
                              "-n", jail.name]))
 
