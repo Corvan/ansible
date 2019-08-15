@@ -85,12 +85,26 @@ message:
 
 from ansible.module_utils.basic import AnsibleModule
 from ansible.module_utils.basic import to_text
-from typing import Dict, List
+from typing import Dict
+from typing import List
+
+
+class JailProperties:
+    def __init__(self, **kwargs):
+        self.vnet = bool(kwargs.get('vnet'))
+        self.boot = bool(kwargs.get('boot'))
+
+    def append_to_create_command(self, command: List[str]):
+        if self.boot:
+            command.append("boot=on")
+        if self.vnet:
+            command.append("vnet=on")
 
 
 class Jail:
     def __init__(self, name: str, release: str = None, template: str = None,
-                 empty: bool = False, started: bool = False, boot: bool = False):
+                 empty: bool = False, started: bool = False,
+                 properties: JailProperties = None):
         if release and template:
             raise ValueError("Only release or template can be set")
         if release is None and template is None:
@@ -103,7 +117,7 @@ class Jail:
         self.template = template
         self.empty = empty
         self.started = started
-        self.boot = boot
+        self.properties = properties
 
 
 class IOCage:
@@ -113,7 +127,6 @@ class IOCage:
     LIST_COMMAND.extend(list(["list", "-Hl"]))
 
     def __init__(self, module: AnsibleModule, result: Dict, zpool: str = None):
-        super(IOCage, self).__init__()
         self.module = module
         self.result = result
         self.zpool = zpool
@@ -133,18 +146,19 @@ class IOCage:
 
     def create(self, jail: Jail):
         command = list(IOCage.IOCAGE)
-        command.extend(list(["create",
-                             "-n", jail.name]))
+        command.append("create")
 
+        if jail.name:
+            command.extend(["-n", jail.name])
         if jail.release:
             command.extend(["-r", jail.release])
         elif jail.template:
             command.extend(["-t", jail.template])
         elif jail.empty:
-            command.extend("-e")
+            command.append("-e")
 
-        if jail.boot:
-            command.extend(["-o", "boot=on"])
+        if jail.properties:
+            jail.properties.append_to_create_command(command)
 
         self.module.run_command(command, check_rc=True)
 
