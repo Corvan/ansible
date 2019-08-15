@@ -102,7 +102,7 @@ class Jail:
 
 class IOCage:
 
-    IOCAGE = list(["iocage"])
+    IOCAGE = ["iocage"]
     LIST_COMMAND = list(IOCAGE)
     LIST_COMMAND.extend(list(["list", "-Hl"]))
 
@@ -149,7 +149,14 @@ class IOCage:
         return False
 
     def start(self, jail: Jail):
-        self.module.run_command(["iocage", "start", jail.name], check_rc=True)
+        command = list(IOCage.IOCAGE)
+        command.extend(list(["start", jail.name]))
+        self.module.run_command(command, check_rc=True)
+
+    def stop(self, jail: Jail):
+        command = list(IOCage.IOCAGE)
+        command.extend(["stop", jail.name])
+        self.module.run_command(command, check_rc=True)
 
     @staticmethod
     def _parse_list_output(stdout) -> List[Dict]:
@@ -211,7 +218,7 @@ def main():
         name=dict(type='str', required=True),
         release=dict(type='str', required=False),
         zpool=dict(type='str', required=False),
-        started=dict(type='bool', required=False, default=True),
+        started=dict(type='bool', required=False, default=False),
         boot=dict(type='bool', required=False)
     )
 
