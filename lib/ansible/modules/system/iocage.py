@@ -176,7 +176,7 @@ def run_module(module: AnsibleModule, result: Dict):
     if iocage.zpool:
         iocage.activate()
         result['changed'] = True
-        message = "ZPool %s activated", format(iocage.zpool)
+        message = str("ZPool %s activated").format(iocage.zpool)
         result['message'] = str("%s, %s").format(result['message'], message)
 
     try:
@@ -185,7 +185,7 @@ def run_module(module: AnsibleModule, result: Dict):
                     started=module.params.get('started'),
                     boot=module.params.get('boot'))
     except ValueError as ve:
-        pass  # TODO: add error Message here
+        module.exit_json(msg=str(ve))
     if not iocage.exists(jail):
         iocage.create(jail)
         result['changed'] = True
@@ -196,7 +196,7 @@ def run_module(module: AnsibleModule, result: Dict):
     if jail.started and not iocage.is_started(jail):
         iocage.start(jail)
         result['changed'] = True
-        message = "Jail %s started".format(jail.name)
+        message = str("Jail %s started").format(jail.name)
         result['message'] = str("%s, %s").format(result['message'], message)
 
     if module.params['name'] == 'fail me':
