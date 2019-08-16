@@ -104,9 +104,9 @@ class JailProperties:
 class Jail:
 
     def __init__(self, name: str, release: str = None, template: str = None,
-                 empty: bool = False, started: bool = False,
+                 empty: bool = False, state: str = False,
                  properties: JailProperties = None):
-        # This cheching has been done, because I was not able to get Ansible's
+        # This checking has been done, because I was not able to get Ansible's
         # conditional parameter checking working. Even though I declared it
         # in main() nothing happened if i passed insufficient parameters
         # no error was raised.
@@ -117,11 +117,12 @@ class Jail:
                 or template and empty\
                 or release and template and empty:
             raise ValueError("Only release or template or empty can be set")
+
         self.name = name
         self.release = release
         self.template = template
         self.empty = empty
-        self.started = started
+        self.state = state
         self.properties = properties
 
 
@@ -182,7 +183,12 @@ class IOCage:
 
     def stop(self, jail: Jail):
         command = list(IOCage.IOCAGE)
-        command.extend(["stop", jail.name])
+        command.extend(["stop", "-f", jail.name])
+        self.module.run_command(command, check_rc=True)
+
+    def destroy(self, jail: Jail):
+        command = list(IOCage.IOCAGE)
+        command.extend(["destroy", "-f", jail.name])
         self.module.run_command(command, check_rc=True)
 
     @staticmethod
@@ -219,33 +225,43 @@ def run_module(module: AnsibleModule, result: Dict):
                     release=module.params.get('release'),
                     template=module.params.get('template'),
                     empty=module.params.get('empty'),
-                    started=module.params.get('started'),
+                    state=module.params.get('state'),
                     properties=JailProperties(module.params.get('properties')))
     except ValueError as ve:
         module.fail_json(msg=str(ve))
-    if not iocage.exists(jail):
+    if (jail.state == "present" or jail.state == "started") and not iocage.exists(jail):
         iocage.create(jail)
         result['changed'] = True
         message = "Jail '%s' created" % jail.name
         result['message'] = str("%s, %s" % (result['message'], message)) \
             if result['message'] else message
 
-    if jail.started and not iocage.is_started(jail):
+    if jail.state == "started" and not iocage.is_started(jail):
         iocage.start(jail)
         result['changed'] = True
         message = str("Jail '%s' started" %  jail.name)
         result['message'] = str("%s, %s" % (result['message'], message)) \
             if result['message'] else message
 
-    if not jail.started and iocage.is_started(jail):
+    if jail.state == "present" and iocage.is_started(jail):
         iocage.stop(jail)
         result['changed'] = True
         message = str("Jail '%s' stopped" % jail.name)
         result['message'] = str("%s, %s" % (result['message'], message)) \
             if result['message'] else message
 
-    if module.params['name'] == 'fail me':
-        module.fail_json(msg='You requested this to fail', **result)
+    if jail.state == "absent" and iocage.exists(jail):
+        if iocage.is_started(jail):
+            iocage.stop(jail)
+            result['changed'] = True
+            message = str("Jail '%s' stopped" % jail.name)
+            result['message'] = str("%s, %s" % (result['message'], message)) \
+                if result['message'] else message
+        iocage.destroy(jail)
+        result['changed'] = True
+        message = str("Jail '%s' destroyed" % jail.name)
+        result['message'] = str("%s, %s" % (result['message'], message)) \
+            if result['message'] else message
 
     return result
 
@@ -254,11 +270,12 @@ def main():
 
     module_arguments = dict(
         zpool=dict(type='str', required=False),
-        name=dict(type='str', required=True),
+        name=dict(type='str', required=False),
+        state=dict(type='str', required=True,
+                   choices=list(["present", "absent", "started"])),
         release=dict(type='str'),
         template=dict(type='str'),
         empty=dict(type='bool', default=False),
-        started=dict(type='bool', required=False, default=False)
     )
 
     iocage_properties = dict(
