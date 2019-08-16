@@ -90,9 +90,9 @@ from typing import List
 
 
 class JailProperties:
-    def __init__(self, **kwargs):
-        self.vnet = bool(kwargs.get('vnet'))
-        self.boot = bool(kwargs.get('boot'))
+    def __init__(self, properties: Dict = None):
+        self.vnet = bool(properties.get('vnet')) if properties and 'vnet' in properties else None
+        self.boot = bool(properties.get('boot')) if properties and 'boot' in properties else None
 
     def append_to_create_command(self, command: List[str]):
         if self.boot:
@@ -102,16 +102,21 @@ class JailProperties:
 
 
 class Jail:
+
     def __init__(self, name: str, release: str = None, template: str = None,
                  empty: bool = False, started: bool = False,
                  properties: JailProperties = None):
-        if release and template:
-            raise ValueError("Only release or template can be set")
-        if release is None and template is None:
-            raise ValueError("You have to pass either release or template")
-        if empty and (release or template):
-            raise ValueError("You can only create an empty Jail with neither "
-                             "release nor template set")
+        # This cheching has been done, because I was not able to get Ansible's
+        # conditional parameter checking working. Even though I declared it
+        # in main() nothing happened if i passed insufficient parameters
+        # no error was raised.
+        if not release and not template and not empty:
+            raise ValueError("You have to pass either release, template or empty")
+        elif release and template \
+                or release and empty \
+                or template and empty\
+                or release and template and empty:
+            raise ValueError("Only release or template or empty can be set")
         self.name = name
         self.release = release
         self.template = template
@@ -212,11 +217,12 @@ def run_module(module: AnsibleModule, result: Dict):
     try:
         jail = Jail(name=module.params['name'],
                     release=module.params.get('release'),
+                    template=module.params.get('template'),
                     empty=module.params.get('empty'),
                     started=module.params.get('started'),
-                    boot=module.params.get('boot'))
+                    properties=JailProperties(module.params.get('properties')))
     except ValueError as ve:
-        module.exit_json(msg=str(ve))
+        module.fail_json(msg=str(ve))
     if not iocage.exists(jail):
         iocage.create(jail)
         result['changed'] = True
@@ -245,17 +251,29 @@ def run_module(module: AnsibleModule, result: Dict):
 
 
 def main():
-    # define available arguments/parameters a user can pass to the module
-    module_args = dict(
+
+    module_arguments = dict(
         zpool=dict(type='str', required=False),
         name=dict(type='str', required=True),
-        release=dict(type='str', required=False),
-        template=dict(type='str', required=False),
-        empty=dict(type='bool', required=False, default=False),
-        started=dict(type='bool', required=False, default=False),
-        boot=dict(type='bool', required=False, default=False)
+        release=dict(type='str'),
+        template=dict(type='str'),
+        empty=dict(type='bool', default=False),
+        started=dict(type='bool', required=False, default=False)
     )
 
+    iocage_properties = dict(
+                             boot=dict(type='bool', required=False, default=False),
+                             vnet=dict(type='bool', required=False)
+    )
+
+    module_arguments['properties'] = dict(type='dict', options=iocage_properties)
+
+    required_one_of = list([
+        list(['release', 'template', 'empty'])
+    ])
+    mutually_exclusive = list([
+        list(['release', 'template', 'empty'])
+    ])
     # seed the result dict in the object
     # we primarily care about changed and state
     # change is if this module effectively modified the target
@@ -272,8 +290,10 @@ def main():
     # args/params passed to the execution, as well as if the module
     # supports check mode
     module = AnsibleModule(
-        argument_spec=module_args,
-        supports_check_mode=True
+        supports_check_mode=True,
+        argument_spec=module_arguments,
+        required_one_of=required_one_of,
+        mutually_exclusive=mutually_exclusive
     )
 
     # if the user is working with this module in only check mode we do not
