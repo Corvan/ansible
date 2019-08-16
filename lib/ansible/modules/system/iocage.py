@@ -144,7 +144,10 @@ class IOCage:
 
     def exists(self, jail: Jail) -> bool:
         stdout = self.module.run_command(IOCage.LIST_COMMAND, check_rc=True)[1]
-        output = IOCage._parse_list_output(to_text(stdout))
+        try:
+            output = IOCage._parse_list_output(to_text(stdout))
+        except StopIteration:
+            return False
         for line in output:
             if line.get('name') == jail.name:
                 return True
@@ -196,6 +199,8 @@ class IOCage:
         output = list()
         for line in stdout.splitlines():
             elements = line.split("\t")
+            if len(elements) == 0:
+                raise StopIteration
             output.append(dict(jailid=elements[0],
                                name=elements[1],
                                boot=elements[2],
