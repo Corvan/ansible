@@ -186,6 +186,8 @@ class IOCage:
         self.module.run_command(command, check_rc=True)
 
     def has_changed_properties(self, jail: Jail) -> bool:
+        if jail.properties is None:
+            return False
         for k,v in jail.properties.items():
             if k and v:
                 command = list(IOCage.IOCAGE)
