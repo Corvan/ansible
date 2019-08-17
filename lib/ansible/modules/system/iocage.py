@@ -205,7 +205,7 @@ class IOCage:
                 stdout = self.module.run_command(get_command, check_rc=True)[1]
                 if stdout != v:
                     set_command = list(IOCage.IOCAGE)
-                    set_command.extend(list(["set", "%s=%s" % (k, v)]))
+                    set_command.extend(list(["set", "%s=%s" % (k, v), jail.name]))
                     self.module.run_command(set_command, check_rc=True)
 
     @staticmethod
