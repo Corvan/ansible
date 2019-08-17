@@ -114,7 +114,7 @@ class Jail:
             raise ValueError("You have to pass either release, template or empty")
         elif release and template \
                 or release and empty \
-                or template and empty\
+                or template and empty \
                 or release and template and empty:
             raise ValueError("Only release or template or empty can be set")
 
@@ -127,7 +127,6 @@ class Jail:
 
 
 class IOCage:
-
     IOCAGE = ["iocage"]
     LIST_COMMAND = list(IOCAGE)
     LIST_COMMAND.extend(list(["list", "-Hl"]))
@@ -244,7 +243,7 @@ def run_module(module: AnsibleModule, result: Dict):
     if jail.state == "started" and not iocage.is_started(jail):
         iocage.start(jail)
         result['changed'] = True
-        message = str("Jail '%s' started" %  jail.name)
+        message = str("Jail '%s' started" % jail.name)
         result['message'] = str("%s, %s" % (result['message'], message)) \
             if result['message'] else message
 
@@ -272,21 +271,104 @@ def run_module(module: AnsibleModule, result: Dict):
 
 
 def main():
-
     module_arguments = dict(
         zpool=dict(type='str', required=False),
         name=dict(type='str', required=False),
+        uuid=dict(type='str', required=False),
         state=dict(type='str', required=True,
                    choices=list(["present", "absent", "started"])),
         release=dict(type='str'),
         template=dict(type='str'),
         empty=dict(type='bool', default=False),
     )
-
-    iocage_properties = dict(
-                             boot=dict(type='bool', required=False, default=False),
-                             vnet=dict(type='bool', required=False)
-    )
+    if module_arguments.get('name') and not module_arguments.get('uuid'):
+        module_arguments['uuid'] = module_arguments['name']
+    # Some of the properties could have been dealt with by using
+    # bool; but they were set to the same types and values iocage
+    # expects to mimic its interface as is.
+    # The order of the properties is the same as in iocage(8)
+    # Only choices are set, where applicable because defaults will be set by
+    # iocage. That make is easier as well to check if options are set by user.
+    iocage_properties = dict(bpf=dict(type='str', choices=list(["on", "off"])),
+                             depends=dict(type='str'),
+                             dhcp=dict(type='str', choices=list(["on", "off"])),
+                             pkglist=dict('str'),
+                             vnet=dict(type='str', choices=list(["on", "off"])),
+                             ipv4_addr=dict(type='str'),
+                             ip4_saddrsel=dict(type='int', choices=list([0, 1])),
+                             ip4=dict(type=str, choices=list(["new", "disable", "inherit"])),
+                             defaultrouter=dict(type='str'),
+                             defaultrouter6=dict(type='str'),
+                             resolver=dict(type=str),
+                             ipv6_addr=dict(type='str'),
+                             ip6_saddrsel=dict(type='int', choices=list([0, 1])),
+                             interfaces=dict(type='str'),
+                             host_domainname=dict(type='str'),
+                             host_hostname=dict(type='str'),
+                             exec_fib=dict(type='int', default=0, choices=list([0, 1])),
+                             devfs_ruleset=dict(type='int', default=4),
+                             mount_devfs=dict(type='int', choices=list([0, 1])),
+                             exec_start=dict(type='str'),
+                             exec_stop=dict(type='str'),
+                             exec_prestart=dict(type='str'),
+                             exec_prestop=dict(type='str'),
+                             exec_poststop=dict(type='str'),
+                             exec_poststart=dict(type='str'),
+                             exec_clean=dict(type='int', choices=list([0, 1])),
+                             exec_timeout=dict(type='int'),
+                             stop_timeout=dict(type='int'),
+                             exec_jail_user=dict(type='str'),
+                             exec_system_jail_user=dict(type='int', choices=list([0, 1])),
+                             exec_system_user=dict(type='str'),
+                             mount_fdescfs=dict(type='int', choices=list([0, 1])),
+                             mount_procfs=dict(type='int', choices=list([0, 1])),
+                             enforce_statfs=dict(type='int', choices=list([0, 1, 2])),
+                             children_max=dict(type='int'),
+                             login_flags=dict(type='str'),
+                             jail_zfs=dict(type='str', choices=list(["on", "off"])),
+                             jail_zfs_dataset=dict(type='str'),
+                             securelevel=dict(type=int, choices=list([-1, 0, 1, 2, 3])),
+                             allow_set_hostname=dict(type='int', choices=list([0, 1])),
+                             allow_sysvipc=dict(type='int', choices=list([0, 1])),
+                             sysvmsg=dict(type=str, choices=list(["new", "disable", "inherit"])),
+                             sysvsem=dict(type=str, choices=list(["new", "disable", "inherit"])),
+                             sysvshm=dict(type=str, choices=list(["new", "disable", "inherit"])),
+                             allow_raw_sockets=dict(type='int', choices=list([0, 1])),
+                             allow_chflags=dict(type='int', choices=list([0, 1])),
+                             allow_mount=dict(type='int', choices=list([0, 1])),
+                             allow_mount_devfs=dict(type='int', choices=list([0, 1])),
+                             allow_mount_fusefs=dict(type='int', choices=list([0, 1])),
+                             allow_mount_nullfs=dict(type='int', choices=list([0, 1])),
+                             allow_mount_procfs=dict(type='int', choices=list([0, 1])),
+                             allow_mount_tmpfs=dict(type='int', choices=list([0, 1])),
+                             allow_mount_zfs=dict(type='int', choices=list([0, 1])),
+                             allow_quotas=dict(type='int', choices=list([0, 1])),
+                             allow_socket_af=dict(type='int', choices=list([0, 1])),
+                             allow_tun=dict(type='int', choices=list([0, 1])),
+                             allow_mlock=dict(type='int', choices=list([0, 1])),
+                             allow_vmm=dict(type='int', choices=list([0, 1])),
+                             host_hostuuid=dict(type='str'),
+                             name=dict(type='str'),
+                             template=dict(type='str', choices=list(["yes", "no"])),
+                             boot=dict(type='str', choices=list(["on", "off"])),
+                             notes=dict(type='str'),
+                             owner=dict(type='str'),
+                             priority=dict(type='int'),
+                             last_started=dict(type='str'),
+                             type=dict(type='str', choices=list(["basejail", "empty", "normal"])),
+                             release=dict(type='str'),
+                             compression=dict(type='str',
+                                              choices=list(["on", "off", "lzjb", "gzip",
+                                                            "gzip-N", "zle", "lz4"])),
+                             origin=dict(type='str'),
+                             quota=dict(type='str'),
+                             dedup=dict(type='str', choices=list(["on", "off", "verify",
+                                                                  "sha256", "sha256,verify"])),
+                             reservation=dict(type='str'),
+                             cpuset=dict(type="str"),
+                             vnet_interfaces=dict(type='str'),
+                             vnet_default_interface=dict(type='str'),
+                             hostid_strict_check=dict(type='str', choices=list(["on", "off"])))
 
     module_arguments['properties'] = dict(type='dict', options=iocage_properties)
 
@@ -296,6 +378,7 @@ def main():
     mutually_exclusive = list([
         list(['release', 'template', 'empty'])
     ])
+
     # seed the result dict in the object
     # we primarily care about changed and state
     # change is if this module effectively modified the target
