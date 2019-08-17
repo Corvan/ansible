@@ -160,6 +160,11 @@ class IOCage:
 
         self.module.run_command(command, check_rc=True)
 
+    def destroy(self, jail: Jail):
+        command = list(IOCage.IOCAGE)
+        command.extend(["destroy", "-f", jail.name])
+        self.module.run_command(command, check_rc=True)
+
     def is_started(self, jail: Jail) -> bool:
         stdout = self.module.run_command(IOCage.LIST_COMMAND, check_rc=True)[1]
         output = IOCage._parse_list_output(to_text(stdout))
@@ -178,10 +183,26 @@ class IOCage:
         command.extend(["stop", "-f", jail.name])
         self.module.run_command(command, check_rc=True)
 
-    def destroy(self, jail: Jail):
-        command = list(IOCage.IOCAGE)
-        command.extend(["destroy", "-f", jail.name])
-        self.module.run_command(command, check_rc=True)
+    def has_changed_properties(self, jail: Jail) -> bool:
+        for k,v in jail.properties.items():
+            if k and v:
+                command = list(IOCage.IOCAGE)
+                command.extend(["get", k, jail.name])
+                stdout = self.module.run_command(command, check_rc=True)[1]
+                if stdout != v:
+                    return True
+        return False
+
+    def set_properties(self, jail: Jail):
+        for k,v in jail.properties.items():
+            if k and v:
+                get_command = list(IOCage.IOCAGE)
+                get_command.extend(["get", k, jail.name])
+                stdout = self.module.run_command(get_command, check_rc=True)[1]
+                if stdout != v:
+                    set_command = list(IOCage.IOCAGE)
+                    set_command.extend(["set", "%s=%s" % (k, v)])
+                    self.module.run_command(set_command, check_rc=True)
 
     @staticmethod
     def _parse_list_output(stdout) -> List[Dict]:
@@ -223,6 +244,7 @@ def run_module(module: AnsibleModule, result: Dict):
                     properties=module.params.get('properties'))
     except ValueError as ve:
         module.fail_json(msg=str(ve))
+
     if (jail.state == "present" or jail.state == "started") and not iocage.exists(jail):
         iocage.create(jail)
         result['changed'] = True
@@ -231,6 +253,17 @@ def run_module(module: AnsibleModule, result: Dict):
             if result['message'] else message
 
     if jail.state == "started" and not iocage.is_started(jail):
+        if iocage.has_changed_properties(jail):
+            iocage.set_properties(jail)
+        iocage.start(jail)
+        result['changed'] = True
+        message = str("Jail '%s' started" % jail.name)
+        result['message'] = str("%s, %s" % (result['message'], message)) \
+            if result['message'] else message
+
+    if jail.state == "started" and iocage.is_started(jail) and iocage.has_changed_properties(jail):
+        iocage.stop(jail)
+        iocage.set_properties(jail)
         iocage.start(jail)
         result['changed'] = True
         message = str("Jail '%s' started" % jail.name)
@@ -239,6 +272,8 @@ def run_module(module: AnsibleModule, result: Dict):
 
     if jail.state == "present" and iocage.is_started(jail):
         iocage.stop(jail)
+        if iocage.has_changed_properties(jail):
+            iocage.set_properties(jail)
         result['changed'] = True
         message = str("Jail '%s' stopped" % jail.name)
         result['message'] = str("%s, %s" % (result['message'], message)) \
