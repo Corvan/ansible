@@ -117,7 +117,6 @@ class Jail:
 class IOCage:
     IOCAGE = ["iocage"]
     LIST_COMMAND = list(IOCAGE)
-    LIST_COMMAND.extend(list(["list", "-Hl"]))
 
     def __init__(self, module: AnsibleModule, result: Dict, zpool: str = None):
         self.module = module
@@ -145,11 +144,11 @@ class IOCage:
         command.append("create")
 
         if jail.name:
-            command.extend(["-n", jail.name])
+            command.extend(list(["-n", jail.name]))
         if jail.release:
-            command.extend(["-r", jail.release])
+            command.extend(list(["-r", jail.release]))
         elif jail.template:
-            command.extend(["-t", jail.template])
+            command.extend(list(["-t", jail.template]))
         elif jail.empty:
             command.append("-e")
 
@@ -162,10 +161,12 @@ class IOCage:
 
     def destroy(self, jail: Jail):
         command = list(IOCage.IOCAGE)
-        command.extend(["destroy", "-f", jail.name])
+        command.extend(list(["destroy", "-f", jail.name]))
         self.module.run_command(command, check_rc=True)
 
     def is_started(self, jail: Jail) -> bool:
+        command = list(IOCage.IOCAGE)
+        command.extend(list(["list", "-Hl"]))
         stdout = self.module.run_command(IOCage.LIST_COMMAND, check_rc=True)[1]
         output = IOCage._parse_list_output(to_text(stdout))
         for line in output:
@@ -180,14 +181,14 @@ class IOCage:
 
     def stop(self, jail: Jail):
         command = list(IOCage.IOCAGE)
-        command.extend(["stop", "-f", jail.name])
+        command.extend(list(["stop", "-f", jail.name]))
         self.module.run_command(command, check_rc=True)
 
     def has_changed_properties(self, jail: Jail) -> bool:
         for k,v in jail.properties.items():
             if k and v:
                 command = list(IOCage.IOCAGE)
-                command.extend(["get", k, jail.name])
+                command.extend(list(["get", k, jail.name]))
                 stdout = self.module.run_command(command, check_rc=True)[1]
                 if stdout != v:
                     return True
@@ -197,11 +198,11 @@ class IOCage:
         for k,v in jail.properties.items():
             if k and v:
                 get_command = list(IOCage.IOCAGE)
-                get_command.extend(["get", k, jail.name])
+                get_command.extend(list(["get", k, jail.name]))
                 stdout = self.module.run_command(get_command, check_rc=True)[1]
                 if stdout != v:
                     set_command = list(IOCage.IOCAGE)
-                    set_command.extend(["set", "%s=%s" % (k, v)])
+                    set_command.extend(list(["set", "%s=%s" % (k, v)]))
                     self.module.run_command(set_command, check_rc=True)
 
     @staticmethod
