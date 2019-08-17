@@ -89,23 +89,11 @@ from typing import Dict
 from typing import List
 
 
-class JailProperties:
-    def __init__(self, properties: Dict = None):
-        self.vnet = bool(properties.get('vnet')) if properties and 'vnet' in properties else None
-        self.boot = bool(properties.get('boot')) if properties and 'boot' in properties else None
-
-    def append_to_create_command(self, command: List[str]):
-        if self.boot:
-            command.append("boot=on")
-        if self.vnet:
-            command.append("vnet=on")
-
-
 class Jail:
 
     def __init__(self, name: str, release: str = None, template: str = None,
                  empty: bool = False, state: str = False,
-                 properties: JailProperties = None):
+                 properties: Dict = None):
         # This checking has been done, because I was not able to get Ansible's
         # conditional parameter checking working. Even though I declared it
         # in main() nothing happened if i passed insufficient parameters
@@ -166,7 +154,9 @@ class IOCage:
             command.append("-e")
 
         if jail.properties:
-            jail.properties.append_to_create_command(command)
+            for k, v in jail.properties.items():
+                if k and v:
+                    command.append("%s=%s" % (k, v))
 
         self.module.run_command(command, check_rc=True)
 
@@ -230,7 +220,7 @@ def run_module(module: AnsibleModule, result: Dict):
                     template=module.params.get('template'),
                     empty=module.params.get('empty'),
                     state=module.params.get('state'),
-                    properties=JailProperties(module.params.get('properties')))
+                    properties=module.params.get('properties'))
     except ValueError as ve:
         module.fail_json(msg=str(ve))
     if (jail.state == "present" or jail.state == "started") and not iocage.exists(jail):
@@ -292,7 +282,7 @@ def main():
     iocage_properties = dict(bpf=dict(type='str', choices=list(["on", "off"])),
                              depends=dict(type='str'),
                              dhcp=dict(type='str', choices=list(["on", "off"])),
-                             pkglist=dict('str'),
+                             pkglist=dict(type='str'),
                              vnet=dict(type='str', choices=list(["on", "off"])),
                              ipv4_addr=dict(type='str'),
                              ip4_saddrsel=dict(type='int', choices=list([0, 1])),
@@ -305,8 +295,8 @@ def main():
                              interfaces=dict(type='str'),
                              host_domainname=dict(type='str'),
                              host_hostname=dict(type='str'),
-                             exec_fib=dict(type='int', default=0, choices=list([0, 1])),
-                             devfs_ruleset=dict(type='int', default=4),
+                             exec_fib=dict(type='int', choices=list([0, 1])),
+                             devfs_ruleset=dict(type='int'),
                              mount_devfs=dict(type='int', choices=list([0, 1])),
                              exec_start=dict(type='str'),
                              exec_stop=dict(type='str'),
