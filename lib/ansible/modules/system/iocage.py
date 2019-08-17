@@ -116,7 +116,6 @@ class Jail:
 
 class IOCage:
     IOCAGE = ["iocage"]
-    LIST_COMMAND = list(IOCAGE)
 
     def __init__(self, module: AnsibleModule, result: Dict, zpool: str = None):
         self.module = module
@@ -129,7 +128,9 @@ class IOCage:
         self.module.run_command(["iocage", "activate", self.zpool], check_rc=True)
 
     def exists(self, jail: Jail) -> bool:
-        stdout = self.module.run_command(IOCage.LIST_COMMAND, check_rc=True)[1]
+        command = list(IOCage.IOCAGE)
+        command.extend(list(["list", "-Hl"]))
+        stdout = self.module.run_command(command, check_rc=True)[1]
         try:
             output = IOCage._parse_list_output(to_text(stdout))
         except StopIteration:
@@ -167,7 +168,7 @@ class IOCage:
     def is_started(self, jail: Jail) -> bool:
         command = list(IOCage.IOCAGE)
         command.extend(list(["list", "-Hl"]))
-        stdout = self.module.run_command(IOCage.LIST_COMMAND, check_rc=True)[1]
+        stdout = self.module.run_command(command, check_rc=True)[1]
         output = IOCage._parse_list_output(to_text(stdout))
         for line in output:
             if line.get('name') == jail.name and line.get('state') == "up":
