@@ -29,7 +29,7 @@ description: >
 
 options:
     zpool:
-        description: Activate given ZPool if needed  # TODO: add zpool activation check
+        description: Activate given ZPool if needed
         type: str
         required: false
     uuid:
