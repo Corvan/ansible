@@ -152,7 +152,7 @@ from typing import List
 
 class Jail:
 
-    def __init__(self, name: str, release: str = None, template: str = None,
+    def __init__(self, name: str, uuid: str = None, release: str = None, template: str = None,
                  empty: bool = False, state: str = False,
                  properties: Dict = None):
         # This checking has been done, because I was not able to get Ansible's
@@ -168,6 +168,7 @@ class Jail:
             raise ValueError("Only release or template or empty can be set")
 
         self.name = name
+        self.uuid = uuid
         self.release = release
         self.template = template
         self.empty = empty
@@ -215,6 +216,8 @@ class IOCage:
 
         if jail.name:
             command.extend(list(["-n", jail.name]))
+        if jail.uuid:
+            command.extend(list(["-u", jail.uuid]))
         if jail.release:
             command.extend(list(["-r", jail.release]))
         elif jail.template:
@@ -240,7 +243,8 @@ class IOCage:
         stdout = self.module.run_command(command, check_rc=True)[1]
         output = IOCage._parse_list_output(to_text(stdout))
         for line in output:
-            if line.get('name') == jail.name and line.get('state') == "up":
+            if line.get('name') == jail.name \
+             and line.get('state') == "up":
                 return True
         return False
 
@@ -310,6 +314,7 @@ def run_module(module: AnsibleModule, result: Dict):
 
     try:
         jail = Jail(name=module.params['name'],
+                    uuid=module.params['uuid'],
                     release=module.params.get('release'),
                     template=module.params.get('template'),
                     empty=module.params.get('empty'),
