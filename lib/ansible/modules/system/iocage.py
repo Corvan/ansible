@@ -541,10 +541,6 @@ def main():
         message=''
     )
 
-    # the AnsibleModule object will be our abstraction working with Ansible
-    # this includes instantiation, a couple of common attr would be the
-    # args/params passed to the execution, as well as if the module
-    # supports check mode
     module = AnsibleModule(
         supports_check_mode=True,
         argument_spec=module_arguments,
@@ -560,8 +556,6 @@ def main():
 
     result = run_module(module, result)
 
-    # in the event of a successful module execution, you will want to
-    # simple AnsibleModule.exit_json(), passing the key/value results
     module.exit_json(**result)
 
 
