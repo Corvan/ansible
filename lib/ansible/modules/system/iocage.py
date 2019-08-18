@@ -183,10 +183,18 @@ class IOCage:
         self.result = result
         self.zpool = zpool
 
-    def activate(self):
-        if self.zpool is None:
-            raise ValueError("No ZPool for activation given")
-        self.module.run_command(["iocage", "activate", self.zpool], check_rc=True)
+    def is_activated(self, zpool: str) -> bool:
+        command = list(IOCage.IOCAGE)
+        command.extend(list(["get", "-p"]))
+        stdout = self.module.run_command(command, check_rc=True)[1]
+        if stdout.strip() == zpool:
+            return True
+        return False
+
+    def activate(self, zpool: str):
+        command = list(IOCage.IOCAGE)
+        command.extend(list(["activate", zpool]))
+        self.module.run_command(command, check_rc=True)
 
     def exists(self, jail: Jail) -> bool:
         command = list(IOCage.IOCAGE)
@@ -254,7 +262,7 @@ class IOCage:
                 command = list(IOCage.IOCAGE)
                 command.extend(list(["get", k, jail.name]))
                 stdout = self.module.run_command(command, check_rc=True)[1]
-                if stdout != v:
+                if stdout.strip() != v:
                     return True
         return False
 
@@ -264,7 +272,7 @@ class IOCage:
                 get_command = list(IOCage.IOCAGE)
                 get_command.extend(list(["get", k, jail.name]))
                 stdout = self.module.run_command(get_command, check_rc=True)[1]
-                if stdout != v:
+                if stdout.strip() != v:
                     set_command = list(IOCage.IOCAGE)
                     set_command.extend(list(["set", "%s=%s" % (k, v), jail.name]))
                     self.module.run_command(set_command, check_rc=True)
@@ -293,8 +301,8 @@ def run_module(module: AnsibleModule, result: Dict):
     result['original_message'] = module.params['name']
 
     iocage = IOCage(module, result, module.params.get('zpool'))
-    if iocage.zpool:
-        iocage.activate()
+    if iocage.zpool and not iocage.is_activated(iocage.zpool):
+        iocage.activate(iocage.zpool)
         result['changed'] = True
         message = str("ZPool %s activated" % iocage.zpool)
         result['message'] = str("%s, %s" % (result['message'], message)) \
