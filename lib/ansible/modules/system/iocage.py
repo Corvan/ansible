@@ -17,39 +17,74 @@ short_description: Use iocage to manage FreeBSD jails
 
 version_added: "2.8" # TODO: check me
 
-description:
-    - >
-        "In FreeBSD jails are chroot environments on steroids,
-        incl. e.g high security and an own network stack.
-        iocage (https://github.com/iocage/iocage) is a jail
-        manager totally written in python using ZFS as storage
-        backend. This module strives to automate jail management
-        with iocage and ansible"
+description: >
+    "In FreeBSD jails are chroot environments on steroids,
+    incl. e.g high security and an own network stack.
+    iocage (https://github.com/iocage/iocage) is a jail
+    manager totally written in python using ZFS as storage
+    backend. This module strives to automate jail management
+    with iocage and ansible. Find more on iocage at
+    U(https://iocage.readthedocs.io/en/latest/index.html) and
+    in iocage(8) of the FreeBSD Manual"
 
 options:
-    name:
-        description:
-            - Your jail's name
-        required: true
-    release:
-        description:
-            - The FreeBSD release to base your jail on
-        required: false
     zpool:
-        description:
-            - Activate given ZPool if needed
+        description: Activate given ZPool if needed  # TODO: add zpool activation check
+        type: str
         required: false
-    started:
-        description:
-            - Define ff the jail should be running
-        default:
-            - true
+    uuid:
+        description: >
+            Set this if you don't want iocage to set a random one.
+            If you don't set a uuid but set a I(name) the name will 
+            be used as uuid 
+        type: str
         required: false
-    boot:
-        description:
-            - Define if the jail should be started on host boot
+    name:
+        description: Your jail's name
+        type: str
         required: false
-
+    state:
+        description: Define in which state your jail should be in
+        type: str
+        choices:
+            present: >
+                The jail is present but not running.
+                It will be created, if it is not present yet.
+                It will be stopped, if it is present and running.
+            started: >
+                The jail is present and running.
+                It will be created if it is not present yet.
+                It will be started if it is not running.
+            absent: >
+                The jail will be destroyed, if it is present.
+         default: started
+        required: false
+    release:
+        description: >
+            The FreeBSD release to base your jail on, 
+            see U(https://www.freebsd.org/relnotes.html)
+        required: false
+        type: str
+    template:
+        description: > 
+            If you created a template jail, you can pass its name here
+            to base this jail on the template,
+            see U(https://iocage.readthedocs.io/en/latest/jailtypes.html#template)
+        type: str
+    empty:
+        description: >
+            Create an empty jail,
+            see U(https://iocage.readthedocs.io/en/latest/jailtypes.html#empty)
+        type: bool
+    properties:
+        description: > 
+            iocage offers a lot of properties to further define jail configurations,
+            see iocage(8) in the FreeBSD Manual. The suboptions are mirroring the
+            values properties can be set to using the set command or passing them 
+            with create, see also 
+            U(https://iocage.readthedocs.io/en/latest/basic-use.html#create-a-jail)
+        type: dict
+        required: false
 author:
     - Lars Liedtke (@Corvan)
 '''
@@ -303,8 +338,8 @@ def main():
     module_arguments = dict(
         zpool=dict(type='str', required=False),
         name=dict(type='str', required=False),
-        uuid=dict(type='str', required=False),
-        state=dict(type='str', required=True,
+        uuid=dict(type='str', required=False),  # TODO: check handling
+        state=dict(type='str', required=False, default="started",
                    choices=list(["present", "absent", "started"])),
         release=dict(type='str'),
         template=dict(type='str'),
