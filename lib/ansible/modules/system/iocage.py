@@ -445,7 +445,7 @@ def main():
     # expects to mimic its interface as is.
     # The order of the properties is the same as in iocage(8)
     # Only choices are set, where applicable because defaults will be set by
-    # iocage. That make is easier as well to check if options are set by user.
+    # iocage. That makes it easier as well to check if options are set by user.
     iocage_properties = dict(bpf=dict(type='str', choices=list(["on", "off"])),
                              depends=dict(type='str'),
                              dhcp=dict(type='str', choices=list(["on", "off"])),
