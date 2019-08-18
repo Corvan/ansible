@@ -134,15 +134,44 @@ EXAMPLES = '''
       '''
 
 RETURN = '''
-original_message:
-    description: The original name param that was passed in
-    type: str
+changed: 
+    description: indicator if ansible has changed a jail
+    type: bool
+    returned: always    
+failed: 
+    description: indicator if everything went ok
+    type: bool
     returned: always
-message:
-    description: The output message that the test module generates
+message: 
+    description: what steps have been changed
     type: str
-    returned: always
-'''
+    returned: always but empty string if nothing has been done
+name:
+    description: the jail's name
+    type: str
+    returned: if the jail has got a name
+properties: 
+    description: >
+        all the jail's properties, see iocage(8) for
+        explanations about their meanings 
+    type: dict
+    returned: if the jail exists after a successful run
+release: 
+    description: the FreeBSD release the jail is based upon
+    type: str
+    returned: if the jail exists after a successful run
+state:
+    description: the jail's state, see I(state)
+    type: str
+    returned: if the jail exists after a successful run
+uuid:
+    description: the jail's uuid
+    type: str
+    returned: if the jail exists after a successful run
+zpool:
+    description: the zpool activated for iocage
+    type: str
+    returned: if the jail exists after a successful run'''
 
 from ansible.module_utils.basic import AnsibleModule
 from ansible.module_utils.basic import to_text
@@ -237,7 +266,7 @@ class IOCage:
         output = IOCage._parse_list_output(to_text(stdout))
         for line in output:
             if line.get('name') == jail.name \
-             and line.get('state') == "up":
+                    and line.get('state') == "up":
                 return True
         return False
 
@@ -256,7 +285,7 @@ class IOCage:
     def has_changed_properties(self, jail: Jail) -> bool:
         if jail.properties is None:
             return False
-        for k,v in jail.properties.items():
+        for k, v in jail.properties.items():
             if k and v:
                 command = list(IOCage.IOCAGE)
                 command.extend(list(["get", k,
@@ -284,7 +313,7 @@ class IOCage:
         return properties_got
 
     def set_properties(self, jail: Jail):
-        for k,v in jail.properties.items():
+        for k, v in jail.properties.items():
             if k and v:
                 get_command = list(IOCage.IOCAGE)
                 get_command.extend(list(["get", k, jail.name]))
@@ -388,12 +417,12 @@ def run_module(module: AnsibleModule, result: Dict):
             if result['message'] else message
 
     if iocage.exists(jail):
-        result['jail'] = dict({"name": jail.name,
-                               "uuid": jail.uuid,
-                               "zpool": iocage.get_activated_zpool(),
-                               "release": jail.release,
-                               "state": jail.state,
-                               "properties": iocage.get_properties(jail)})
+        result.update(dict({"name": jail.name,
+                            "uuid": jail.uuid,
+                            "zpool": iocage.get_activated_zpool(),
+                            "release": jail.release,
+                            "state": jail.state,
+                            "properties": iocage.get_properties(jail)}))
 
     return result
 
@@ -507,11 +536,6 @@ def main():
         list(['release', 'template', 'empty'])
     ])
 
-    # seed the result dict in the object
-    # we primarily care about changed and state
-    # change is if this module effectively modified the target
-    # state will include any data that you want your module to pass back
-    # for consumption, for example, in a subsequent task
     result = dict(
         changed=False,
         message=''
