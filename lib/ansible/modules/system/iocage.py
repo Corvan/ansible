@@ -173,12 +173,16 @@ class IOCage:
         self.zpool = zpool
 
     def is_activated(self, zpool: str) -> bool:
-        command = list(IOCage.IOCAGE)
-        command.extend(list(["get", "-p"]))
-        stdout = self.module.run_command(command, check_rc=True)[1]
+        stdout = self.get_activated_zpool()
         if stdout.strip() == zpool:
             return True
         return False
+
+    def get_activated_zpool(self) -> str:
+        command = list(IOCage.IOCAGE)
+        command.extend(list(["get", "-p"]))
+        stdout = self.module.run_command(command, check_rc=True)[1]
+        return stdout.strip()
 
     def activate(self, zpool: str):
         command = list(IOCage.IOCAGE)
@@ -194,7 +198,7 @@ class IOCage:
         except StopIteration:
             return False
         for line in output:
-            if line.get('name') == jail.name:
+            if line.get('name') == jail.name if jail.name else jail.uuid:
                 return True
         return False
 
@@ -222,7 +226,8 @@ class IOCage:
 
     def destroy(self, jail: Jail):
         command = list(IOCage.IOCAGE)
-        command.extend(list(["destroy", "-f", jail.name]))
+        command.extend(list(["destroy", "-f",
+                             jail.name if jail.name else jail.uuid]))
         self.module.run_command(command, check_rc=True)
 
     def is_started(self, jail: Jail) -> bool:
@@ -238,12 +243,14 @@ class IOCage:
 
     def start(self, jail: Jail):
         command = list(IOCage.IOCAGE)
-        command.extend(list(["start", jail.name]))
+        command.extend(list(["start",
+                             jail.name if jail.name else jail.uuid]))
         self.module.run_command(command, check_rc=True)
 
     def stop(self, jail: Jail):
         command = list(IOCage.IOCAGE)
-        command.extend(list(["stop", "-f", jail.name]))
+        command.extend(list(["stop", "-f",
+                             jail.name if jail.name else jail.uuid]))
         self.module.run_command(command, check_rc=True)
 
     def has_changed_properties(self, jail: Jail) -> bool:
@@ -252,11 +259,29 @@ class IOCage:
         for k,v in jail.properties.items():
             if k and v:
                 command = list(IOCage.IOCAGE)
-                command.extend(list(["get", k, jail.name]))
+                command.extend(list(["get", k,
+                                     jail.name if jail.name else jail.uuid]))
                 stdout = self.module.run_command(command, check_rc=True)[1]
                 if stdout.strip() != v:
                     return True
         return False
+
+    def get_properties(self, jail: Jail, properties_to_get: List[str] = None) -> Dict:
+        command = list(IOCage.IOCAGE)
+        properties_got = dict()
+        if properties_to_get is None or len(properties_to_get) == 0:
+            command.extend(list(["get", "all",
+                                 jail.name if jail.name else jail.uuid]))
+            stdout = self.module.run_command(command, check_rc=True)[1]
+            for line in stdout.splitlines():
+                IOCage._add_line_to_properties(properties_got, line.strip())
+        else:
+            for p in properties_to_get:
+                pcommand = list(command)
+                pcommand.extend(list(["get", p]))
+                stdout = self.module.run_command(command, check_rc=True)[1]
+                IOCage._add_line_to_properties(properties_got, stdout.strip())
+        return properties_got
 
     def set_properties(self, jail: Jail):
         for k,v in jail.properties.items():
@@ -266,7 +291,8 @@ class IOCage:
                 stdout = self.module.run_command(get_command, check_rc=True)[1]
                 if stdout.strip() != v:
                     set_command = list(IOCage.IOCAGE)
-                    set_command.extend(list(["set", "%s=%s" % (k, v), jail.name]))
+                    set_command.extend(list(["set", "%s=%s" % (k, v),
+                                             jail.name if jail.name else jail.uuid]))
                     self.module.run_command(set_command, check_rc=True)
 
     @staticmethod
@@ -288,10 +314,13 @@ class IOCage:
                                basejail=elements[9]))
         return output
 
+    @staticmethod
+    def _add_line_to_properties(properties: Dict, line: str):
+        elements = line.split(":")
+        properties[elements[0]] = elements[1]
+
 
 def run_module(module: AnsibleModule, result: Dict):
-    result['original_message'] = module.params['name']
-
     iocage = IOCage(module, result, module.params.get('zpool'))
     if iocage.zpool and not iocage.is_activated(iocage.zpool):
         iocage.activate(iocage.zpool)
@@ -357,6 +386,14 @@ def run_module(module: AnsibleModule, result: Dict):
         message = str("Jail '%s' destroyed" % jail.name)
         result['message'] = str("%s, %s" % (result['message'], message)) \
             if result['message'] else message
+
+    if iocage.exists(jail):
+        result['jail'] = dict({"name": jail.name,
+                               "uuid": jail.uuid,
+                               "zpool": iocage.get_activated_zpool(),
+                               "release": jail.release,
+                               "state": jail.state,
+                               "properties": iocage.get_properties(jail)})
 
     return result
 
@@ -477,7 +514,6 @@ def main():
     # for consumption, for example, in a subsequent task
     result = dict(
         changed=False,
-        original_message='',
         message=''
     )
 
