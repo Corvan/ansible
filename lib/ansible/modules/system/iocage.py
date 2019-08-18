@@ -155,18 +155,6 @@ class Jail:
     def __init__(self, name: str, uuid: str = None, release: str = None, template: str = None,
                  empty: bool = False, state: str = False,
                  properties: Dict = None):
-        # This checking has been done, because I was not able to get Ansible's
-        # conditional parameter checking working. Even though I declared it
-        # in main() nothing happened if i passed insufficient parameters
-        # no error was raised.
-        if not release and not template and not empty:
-            raise ValueError("You have to pass either release, template or empty")
-        elif release and template \
-                or release and empty \
-                or template and empty \
-                or release and template and empty:
-            raise ValueError("Only release or template or empty can be set")
-
         self.name = name
         self.uuid = uuid
         self.release = release
