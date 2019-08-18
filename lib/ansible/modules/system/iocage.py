@@ -78,10 +78,10 @@ options:
         type: bool
     properties:
         description: > 
-            iocage offers a lot of properties to further define jail configurations,
-            see iocage(8) in the FreeBSD Manual. The suboptions are mirroring the
-            values properties can be set to using the set command or passing them 
-            with create, see also 
+            iocage offers a lot of properties to further define jail 
+            configurations, see iocage(8) in the FreeBSD Manual. The suboptions 
+            are mirroring the values properties can be set to using the set 
+            command or passing them with create, see also 
             U(https://iocage.readthedocs.io/en/latest/basic-use.html#create-a-jail)
         type: dict
         required: false
@@ -90,22 +90,48 @@ author:
 '''
 
 EXAMPLES = '''
-# Pass in a message
-- name: Test with a message
-  my_test:
-    name: hello world
+- name: ensure jail is created
+  iocage:
+    name: test
+    release: 12.0-RELEASE
+    
+- name: > 
+      ensure jail is created with a certain 
+      zfs pool activated
+  iocage:
+    zpool: zroot
+    name: test
+    release: 12.0-RELEASE
 
-# pass in a message and have changed true
-- name: Test with a message and changed output
-  my_test:
-    name: hello world
-    new: true
+- name: Ensure jail is started
+  iocage:
+    name: test
+    release: 12.0-RELEASE
+    state: started
 
-# fail the module
-- name: Test failure of the module
-  my_test:
-    name: fail me
-'''
+
+- name: Ensure jail is stopped
+  iocage:
+    name: test
+    release: 12.0-RELEASE
+    state: present
+
+- name: Ensure jail is destroyed
+  iocage:
+    name: test
+    state: absent
+    
+- name: ensure jail properties are set
+  iocage:
+    name: test
+    state: present
+    release: 12.0-RELEASE
+    properties:
+      boot: "on"
+      vnet: "on"
+      ip4_addr: "192.168.1.2/24"
+      defaultrouter: "192.168.1.1"
+      '''
 
 RETURN = '''
 original_message:
