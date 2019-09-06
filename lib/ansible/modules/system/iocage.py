@@ -25,7 +25,7 @@ description: >
     backend. This module strives to automate jail management
     with iocage and ansible. Find more on iocage at
     U(https://iocage.readthedocs.io/en/latest/index.html) and
-    in iocage(8) of the FreeBSD Manual"
+    in iocage(8) of the FreeBSD Manual
 
 options:
     zpool:
