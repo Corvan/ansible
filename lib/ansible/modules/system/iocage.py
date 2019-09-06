@@ -18,7 +18,7 @@ short_description: Use iocage to manage FreeBSD jails
 version_added: "2.8" # TODO: check me
 
 description: >
-    "In FreeBSD jails are chroot environments on steroids,
+    In FreeBSD jails are chroot environments on steroids,
     incl. e.g high security and an own network stack.
     iocage (https://github.com/iocage/iocage) is a jail
     manager totally written in python using ZFS as storage
