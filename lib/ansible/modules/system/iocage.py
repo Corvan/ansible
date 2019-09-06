@@ -35,7 +35,7 @@ options:
     uuid:
         description: >
             Set this if you don't want iocage to set a random one.
-            If you don't set a uuid but set a I(name) the name will 
+            If you don't set a uuid but set I(name) the name will 
             be used as uuid 
         type: str
         required: false
