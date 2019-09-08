@@ -206,7 +206,7 @@ class IOCage:
         Check if the given zpool has been activated for use with iocage
         """
         stdout = self.get_activated_zpool()
-        if stdout.strip() == zpool:
+        if stdout == zpool:
             return True
         return False
 
