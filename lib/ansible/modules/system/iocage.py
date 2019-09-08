@@ -600,7 +600,7 @@ def main():
         mutually_exclusive=mutually_exclusive
     )
 
-    # if the user is working with this module in only check mode we do not
+    # If the user is working with this module in only check mode we do not
     # want to make any changes to the environment, just return the current
     # state with no modifications
     if module.check_mode:
