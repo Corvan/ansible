@@ -16,7 +16,7 @@ module: iocage
 
 short_description: Use iocage to manage FreeBSD jails
 
-version_added: "2.8" # TODO: check me
+version_added: "2.x" # TODO: check me
 
 description: >
     In FreeBSD jails are chroot environments on steroids,
