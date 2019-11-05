@@ -19,8 +19,9 @@ version_added: "2.8" # TODO: check me
 
 description: >
     In FreeBSD jails are chroot environments on steroids,
-    incl. e.g high security and an own network stack.
-    iocage (https://github.com/iocage/iocage) is a jail
+    incl. e.g high security and an own network stack 
+    U(https://www.freebsd.org/doc/en_US.ISO8859-1/books/handbook/jails.html).
+    iocage U(https://github.com/iocage/iocage) is a jail
     manager totally written in python using ZFS as storage
     backend. This module strives to automate jail management
     with iocage and ansible. Find more on iocage at
