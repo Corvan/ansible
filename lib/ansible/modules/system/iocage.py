@@ -1,7 +1,8 @@
 #!/usr/bin/python
 
 # Copyright: (c) 2019, Lars Liedtke <liedtke@punkt.de>
-# GNU General Public License v3.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
+# GNU General Public License v3.0+
+# (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 ANSIBLE_METADATA = {
     'metadata_version': '1.0',
