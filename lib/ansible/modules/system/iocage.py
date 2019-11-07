@@ -64,7 +64,11 @@ options:
     release:
         description: >
             The FreeBSD release to base your jail on, 
-            see U(https://www.freebsd.org/relnotes.html)
+            see U(https://www.freebsd.org/relnotes.html).
+            You can only set the FreeBSD-Version running on the host as
+            upper threshold for the jail's release. But you can set a 
+            release lower than the host's running FreeBSD-Version.
+            note: you have to set either release, template or empty
         required: false
         type: str
     template:
@@ -72,11 +76,13 @@ options:
             If you created a template jail, you can pass its name here
             to base this jail on the template,
             see U(https://iocage.readthedocs.io/en/latest/jailtypes.html#template)
+            note: you have to set either release, template or empty 
         type: str
     empty:
         description: >
             Create an empty jail,
             see U(https://iocage.readthedocs.io/en/latest/jailtypes.html#empty)
+            note: you have to set either release, template or empty
         type: bool
     properties:
         description: > 
