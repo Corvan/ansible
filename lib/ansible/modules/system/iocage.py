@@ -57,6 +57,11 @@ options:
                 The jail is present and running.
                 It will be created if it is not present yet.
                 It will be started if it is not running.
+            stopped: >
+                The jail is present and not running.
+                It will be created if it is not present yet.
+                it will be stopped if it is running.
+                
             absent: >
                 The jail will be destroyed, if it is present.
          default: started
@@ -453,8 +458,11 @@ def run_module(module: AnsibleModule, result: Dict):
         result['message'] = str("%s, %s" % (result['message'], message)) \
             if result['message'] else message
 
-    if jail.state == "present" and iocage.is_started(jail):
-        iocage.stop(jail)
+    if jail.state == "stopped":
+        if not iocage.exists(jail):
+            iocage.create(jail)
+        if iocage.is_started(jail):
+            iocage.stop(jail)
         if iocage.has_changed_properties(jail):
             iocage.set_properties(jail)
         result['changed'] = True
@@ -492,7 +500,7 @@ def main():
         name=dict(type='str', required=False),
         uuid=dict(type='str', required=False),
         state=dict(type='str', required=False, default="started",
-                   choices=list(["present", "absent", "started"])),
+                   choices=list(["present", "absent", "started", "stopped"])),
         release=dict(type='str'),
         template=dict(type='str'),
         empty=dict(type='bool', default=False),
