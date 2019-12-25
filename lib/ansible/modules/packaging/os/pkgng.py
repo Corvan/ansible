@@ -12,6 +12,7 @@
 from __future__ import absolute_import, division, print_function
 __metaclass__ = type
 
+from typing import List, Set
 
 ANSIBLE_METADATA = {'metadata_version': '1.1',
                     'status': ['preview'],
@@ -118,31 +119,46 @@ EXAMPLES = '''
 import re
 from ansible.module_utils.basic import AnsibleModule
 
+class PackagesNotInstalled(Exception):
+    def __init__(self):
+        super().__init__()
 
-def query_package(module, pkgng_path, name, dir_arg):
+def query_packages(module, pkgng_path, packages, dir_arg) -> Set[str]:
 
-    rc, out, err = module.run_command("%s %s info -g -e %s" % (pkgng_path, dir_arg, name))
+    rc, out, err = module.run_command("%s %s info -g -e %s" % (pkgng_path, dir_arg, str(" ").join(packages)))
 
     if rc == 0:
-        return True
+        raise PackagesNotInstalled()
 
-    return False
+    installed_packages = set()
+
+    # TODO: parse output of `pkg list`
+    //
+
+    return installed_packages
+
+class NoPackagesToUpgrade(Exception):
+    def __init__(self):
+        super().__init__()
 
 
-def query_update(module, pkgng_path, name, dir_arg, old_pkgng, pkgsite):
+def query_update(module, pkgng_path, packages, dir_arg, old_pkgng, pkgsite) -> List[str]:
 
     # Check to see if a package upgrade is available.
     # rc = 0, no updates available or package not installed
     # rc = 1, updates available
     if old_pkgng:
-        rc, out, err = module.run_command("%s %s upgrade -g -n %s" % (pkgsite, pkgng_path, name))
+        rc, out, err = module.run_command("%s %s upgrade -g -n %s" % (pkgsite, pkgng_path, str(" ").join(packages)))
     else:
-        rc, out, err = module.run_command("%s %s upgrade %s -g -n %s" % (pkgng_path, dir_arg, pkgsite, name))
+        rc, out, err = module.run_command("%s %s upgrade %s -g -n %s" % (pkgng_path, dir_arg, pkgsite, str(" ").join(packages)))
 
-    if rc == 1:
-        return True
+    if rc == 0:
+        raise NoPackagesToUpgrade()
 
-    return False
+    packages_to_upgrade = list()
+    # TODO: parse output to evaluate, which packages can be updated
+    //
+    return packages_to_upgrade
 
 
 def pkgng_older_than(module, pkgng_path, compare_version):
@@ -186,9 +202,32 @@ def remove_packages(module, pkgng_path, packages, dir_arg):
     return (False, "package(s) already absent")
 
 
+def run_pkg(module, batch_var, pkgsite, pkgng_path, old_pkgng, dir_arg, state, packages, action):
+    if old_pkgng:
+        rc, out, err = module.run_command("%s %s %s %s -g -U -y %s" % (batch_var, pkgsite, pkgng_path, action,
+                                                                       str(" ").join(packages)))
+    else:
+        rc, out, err = module.run_command(
+            "%s %s %s %s %s -g -U -y %s" % (batch_var, pkgng_path, dir_arg, action, pkgsite, str(" ".join(packages))))
+
+    install_c = 0
+
+    for package in packages:
+        if not module.check_mode and not query_package(module, pkgng_path, package, dir_arg):
+            module.fail_json(msg="failed to %s %s: %s" % (action, package, out), stderr=err)
+
+        install_c += 1
+
+    if install_c > 0:
+        return True, "added %s package(s)" % install_c
+
+    return False, "package(s) already %s" % state
+
+
 def install_packages(module, pkgng_path, packages, cached, pkgsite, dir_arg, state):
 
     install_c = 0
+    requested_packages = set(packages)
 
     # as of pkg-1.1.4, PACKAGESITE is deprecated in favor of repository definitions
     # in /usr/local/etc/pkg/repos
@@ -211,34 +250,31 @@ def install_packages(module, pkgng_path, packages, cached, pkgsite, dir_arg, sta
         if rc != 0:
             module.fail_json(msg="Could not update catalogue [%d]: %s %s" % (rc, out, err))
 
+    try:
+        installed_packages = query_packages(module, pkgng_path, packages, dir_arg)
+    except PackagesNotInstalled:
+        installed_packages = set()
+
+    packages_to_install = requested_packages.difference(installed_packages)
+
+    try:
+        packages_to_upgrade = query_update(module, pkgng_path, installed_packages, dir_arg, old_pkgng, pkgsite)
+        update_available = True
+    except NoPackagesToUpgrade:
+        packages_to_upgrade = set()
+        update_available = False
+
+    packages_to_install = packages_to_install.difference(packages_to_upgrade)
+
     for package in packages:
-        already_installed = query_package(module, pkgng_path, package, dir_arg)
-        if already_installed and state == "present":
+        if not update_available and package in installed_packages and state == "latest":
+            continue
+        if update_available and package in installed_packages and state == "latest":
             continue
 
-        update_available = query_update(module, pkgng_path, package, dir_arg, old_pkgng, pkgsite)
-        if not update_available and already_installed and state == "latest":
-            continue
-
-        if not module.check_mode:
-            if already_installed:
-                action = "upgrade"
-            else:
-                action = "install"
-            if old_pkgng:
-                rc, out, err = module.run_command("%s %s %s %s -g -U -y %s" % (batch_var, pkgsite, pkgng_path, action, package))
-            else:
-                rc, out, err = module.run_command("%s %s %s %s %s -g -U -y %s" % (batch_var, pkgng_path, dir_arg, action, pkgsite, package))
-
-        if not module.check_mode and not query_package(module, pkgng_path, package, dir_arg):
-            module.fail_json(msg="failed to %s %s: %s" % (action, package, out), stderr=err)
-
-        install_c += 1
-
-    if install_c > 0:
-        return (True, "added %s package(s)" % (install_c))
-
-    return (False, "package(s) already %s" % (state))
+    if not module.check_mode:
+        run_pkg(module, batch_var, pkgsite, pkgng_path, old_pkgng, dir_arg, state, packages_to_upgrade, action="upgrade")
+        run_pkg(module, batch_var, pkgsite, pkgng_path, old_pkgng, dir_arg, state, packages_to_install, action="install")
 
 
 def annotation_query(module, pkgng_path, package, tag, dir_arg):
